@@ -22,13 +22,8 @@ export class CategoryModal extends FuzzySuggestModal<category> {
             }
           }
         }
-    return Array.from(categories).sort();
+        return Array.from(categories).sort();
     };
-    
-    getItems(): Category[] {
-    // compute fresh each time from vault
-    return this.getCategories().map((title) => ({ title }));
-  }
 
     getSuggestions(query: string): FuzzyMatch<Category>[] {
         this.currentInput = query.trim();
@@ -70,8 +65,16 @@ export class CategoryModal extends FuzzySuggestModal<category> {
             match: { score: 0.8, matches: [] }  
         }));  
     }  
-  
+    
+    getItems(): Category[] {
+        // compute fresh each time from vault
+        return this.getCategories().map((title) => ({ title }));
+    } 
+    getItemText(item: Category): string {
+        return item.title;
+    }
     renderSuggestion(match: FuzzyMatch<Category>, el: HTMLElement) {  
+       const item = match.item;
        if (item.item.isNew) {  
             el.createEl('div', { text: `Create new category: "${item.item.title}"` });  
             el.addClass('suggestion-new');  
@@ -81,26 +84,29 @@ export class CategoryModal extends FuzzySuggestModal<category> {
     }  
   
     onChooseSuggestion(item: FuzzyMatch<Category>, evt: MouseEvent | KeyboardEvent) {  
-        if (item.item.isNew) {  
-            this.createNewCategory(item.item.title);  
-        } else {  
-            this.selectExistingCategory(item.item);  
-        }  
-        this.close();  
-    }  
-  
-    private createNewCategory(title: string) {  
-        // Create the new category logic  
-        const newCategory = { title, id: generateId() };  
-        this.saveCategory(newCategory);  
-        this.addCategoryToActiveNote(title);  
-    }  
-  
-    private selectExistingCategory(category: Category) {  
-        this.addCategoryToActiveNote(category.title);  
-    }  
-}
+        const chosen = match.item;
+        // If the consumer set onChooseItem (as a callback) call it; otherwise, fallback to default behavior.
+        // Some code sets modal.onChooseItem = (category) => { ... } so call it if present.
+        const callback = (this as any).onChooseItem;
+        if (typeof callback === 'function') {
+            callback(chosen);
+            return;
+        }
 
+        // Default behavior if no callback: add category to active note (if available via app)
+        // Note: the modal doesn't have direct access to plugin helper functions, so we just show a notice
+        if (chosen.isNew) {
+            new Notice(`Would create new category: ${chosen.title}`);
+        } else {
+            new Notice(`Would select existing category: ${chosen.title}`);
+        }
+    }
+
+    // Helper methods that operate only on the modal instance are intentionally lightweight; real creation/saving
+    // should be done by the plugin via the onChooseItem callback.
+}   
+  
+   
 export default class EnhanceWebViewerPlugin extends Plugin {
 	async addCategoryToActiveNote(category: string) {  
     // Get the active markdown view  
