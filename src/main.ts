@@ -32,39 +32,29 @@ export class CategoryModal extends FuzzySuggestModal<category> {
             return [];
         }
 
-        //Get existing categories
-        const existingCategories = this.getCategories();
-        const matches = existingCategories.filter(category =>
-            category.title.toLowerCase().includes(this.currentInput.toLowerCase())
+        //Get existing categories, Map strings -> Category objects so we can use .title safely
+        const existingCategories: Category[] = this.getCategories().map(t => ({ title: t}));
+        const inputLower = this.currentInput.toLowerCase();
+        const matches = existingCategories.filter(cat =>
+            typeof cat.title === 'string' && cat.title.toLowerCase().includes(inputLower)
         );
 
         //If no matches, add the current input as a new category
-        if (matches.length === 0 && this.currentInput.length > 0) {  
-            const newCategory: Category = { title: this.currentInput, isNew: true };  
-            return [{ item: newCategory, match: { score: 1, matches: [] } }];  
-        }  
+        if (matches.length === 0 && this.currentInput.length > 0) {
+           return [{ title: this.currentInput, isNew: true }];
+        }
 
-        // If partial matches, add "Create new" as first option  
-        if (this.currentInput.length > 0) {  
-            const hasExactMatch = matches.some(cat =>   
-                cat.title.toLowerCase() === this.currentInput.toLowerCase()  
-            );  
-              
-            if (!hasExactMatch) {  
-                const newCategory: Category = { title: this.currentInput, isNew: true };  
-                const createNewOption = { item: newCategory, match: { score: 1, matches: [] } };  
-                return [createNewOption, ...matches.map(cat => ({  
-                    item: cat,   
-                    match: { score: 0.8, matches: [] }  
-                }))];  
-            }  
-        }  
+        // If partial matches and no exact match, put "Create new" first
+        const hasExactMatch = matches.some(cat =>
+            typeof cat.title === 'string' && cat.title.toLowerCase() === inputLower
+        );
 
-        return matches.map(cat => ({  
-            item: cat,   
-            match: { score: 0.8, matches: [] }  
-        }));  
-    }  
+        if (!hasExactMatch) {
+            return [{ title: this.currentInput, isNew: true }, ...matches];
+        }
+
+        return matches;
+    }
     
     getItems(): Category[] {
         // compute fresh each time from vault
@@ -73,39 +63,37 @@ export class CategoryModal extends FuzzySuggestModal<category> {
     getItemText(item: Category): string {
         return item.title;
     }
-    renderSuggestion(match: FuzzyMatch<Category>, el: HTMLElement) {  
-       const item = match.item;
-       if (item.item.isNew) {  
-            el.createEl('div', { text: `Create new category: "${item.item.title}"` });  
-            el.addClass('suggestion-new');  
-        } else {  
-            el.createEl('div', { text: item.item.title });  
-        }  
-    }  
-  
-    onChooseSuggestion(item: FuzzyMatch<Category>, evt: MouseEvent | KeyboardEvent) {  
-        const chosen = match.item;
-        // If the consumer set onChooseItem (as a callback) call it; otherwise, fallback to default behavior.
-        // Some code sets modal.onChooseItem = (category) => { ... } so call it if present.
+    renderSuggestion(itemOrMatch: Category | FuzzyMatch<Category>, el: HTMLElement) {
+        // Be defensive: support both shapes (Category or { item: Category })
+        const item: Category = (itemOrMatch && (itemOrMatch as any).item) ? (itemOrMatch as any).item : (itemOrMatch as any);
+
+        if (item?.isNew) {
+            el.createEl('div', { text: `Create new category: "${item.title}"` });
+            el.addClass('suggestion-new');
+        } else {
+            el.createEl('div', { text: item?.title ?? '' });
+        }
+    }
+
+    // onChooseSuggestion will also be called with a Category
+    onChooseSuggestion(itemOrMatch: Category | FuzzyMatch<Category>, evt: MouseEvent | KeyboardEvent) {
+        const chosen: Category = (itemOrMatch && (itemOrMatch as any).item) ? (itemOrMatch as any).item : (itemOrMatch as any);
+
+        // call external handler if provided
         const callback = (this as any).onChooseItem;
         if (typeof callback === 'function') {
             callback(chosen);
             return;
         }
 
-        // Default behavior if no callback: add category to active note (if available via app)
-        // Note: the modal doesn't have direct access to plugin helper functions, so we just show a notice
-        if (chosen.isNew) {
+        // fallback behavior
+        if (chosen?.isNew) {
             new Notice(`Would create new category: ${chosen.title}`);
         } else {
             new Notice(`Would select existing category: ${chosen.title}`);
         }
-    }
-
-    // Helper methods that operate only on the modal instance are intentionally lightweight; real creation/saving
-    // should be done by the plugin via the onChooseItem callback.
-}   
-  
+    }      
+}  
    
 export default class EnhanceWebViewerPlugin extends Plugin {
 	async addCategoryToActiveNote(category: string) {  
