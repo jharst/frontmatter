@@ -1,8 +1,65 @@
-import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, Menu, FuzzyMatch, FuzzySuggestModal, renderResults } from 'obsidian';
+import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, Menu, FuzzyMatch, FuzzySuggestModal, SuggestModal, renderResults } from 'obsidian';
 interface Category {
-        title: string;
-        isNew?: boolean;
-        id?: string;
+    title: string;
+    isNew?: boolean;
+    id?: string;
+}
+
+interface InitialChoice {
+    title: string;
+    subtitle: string;
+    type: 'FuzzySuggestModal'|'PromptModal';
+    field: 'category'|'tag'|'alias'|'author'|'year';
+}
+
+const ALL_CHOICES = [
+    {
+        title: 'Add Category',
+        subtitle: 'Choose a category to add',
+        type: 'FuzzySuggestModal',
+        field: 'category',
+    },
+    {
+        title: 'Add Tag',
+        subtitle: 'Choose tag to add',
+        type: 'FuzzySuggestModal',
+        field: 'tag',
+    },
+    {
+        title: 'Add Alias',
+        subtitle: 'Specify an alias to add',
+        type: 'PromptModal',
+        field: 'alias',
+    },
+    {
+        title: 'Add Year',
+        subtitle: 'Specify year to add',
+        type: 'PromptModal',
+        field: 'year',
+    },
+    {
+        title: 'Add Author',
+        subtitle: 'Choose an author to add',
+        type: 'FuzzySuggestModal',
+        field: 'author',
+    }
+]
+
+export class InitialModal extends SuggestModal<InitialChoice> {
+    getSuggestions(query: string): IntitalChoice[] {
+        return ALL_CHOICES.filter((choice) =>
+          choice.title.toLowerCase().includes(query.toLowerCase())
+        );
+      }
+
+    renderSuggestion(choice: InitialChoice, el: HTMLElement) {
+        el.createEl('div', { text: choice.title });
+        el.createEl('small', {text: choice.subtitle});
+    }
+
+    onChooseSuggestion(choice: InitialChoice, evt: MouseEvent | KeyboardEvent) {
+    new Notice(`Selected ${choice.title}`);
+  }
 }
 
 export class CategoryModal extends FuzzySuggestModal<category> {
@@ -98,38 +155,38 @@ export class CategoryModal extends FuzzySuggestModal<category> {
    
 export default class EnhanceWebViewerPlugin extends Plugin {
 	async addCategoryToActiveNote(category: string) {  
-    // Get the active markdown view  
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);  
-      
-    if (!activeView || !activeView.file) {  
-        new Notice('No active markdown file found');  
-        return;  
-    }  
-  
-    // Use processFrontMatter to atomically modify the frontmatter  
-    await this.app.fileManager.processFrontMatter(activeView.file, (frontmatter) => {  
-        // Handle existing categories (both single string and array)  
-        let categories: string[] = [];  
+        // Get the active markdown view  
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);  
           
-        if (frontmatter.category) {  
-            if (Array.isArray(frontmatter.category)) {  
-                categories = frontmatter.category;  
-            } else if (typeof frontmatter.category === 'string') {  
-                categories = [frontmatter.category];  
+        if (!activeView || !activeView.file) {  
+            new Notice('No active markdown file found');  
+            return;  
+        }  
+      
+        // Use processFrontMatter to atomically modify the frontmatter  
+        await this.app.fileManager.processFrontMatter(activeView.file, (frontmatter) => {  
+            // Handle existing categories (both single string and array)  
+            let categories: string[] = [];  
+              
+            if (frontmatter.category) {  
+                if (Array.isArray(frontmatter.category)) {  
+                    categories = frontmatter.category;  
+                } else if (typeof frontmatter.category === 'string') {  
+                    categories = [frontmatter.category];  
+                }  
             }  
-        }  
+              
+            // Add the new category if it doesn't already exist  
+            if (!categories.includes(category)) {  
+                categories.push(category);  
+            }  
+              
+            // Update frontmatter  
+            frontmatter.category = categories.length === 1 ? categories[0] : categories;  
+        });  
           
-        // Add the new category if it doesn't already exist  
-        if (!categories.includes(category)) {  
-            categories.push(category);  
-        }  
-          
-        // Update frontmatter  
-        frontmatter.category = categories.length === 1 ? categories[0] : categories;  
-    });  
-      
-    new Notice(`Added category: ${category}`);  
-}
+        new Notice(`Added category: ${category}`);  
+    }
     async onload() {  
         // Register event for editor context menu  
         this.registerEvent(
@@ -172,6 +229,19 @@ export default class EnhanceWebViewerPlugin extends Plugin {
             };
             modal.open();
             modal.setPlaceholder('Select a category to insert');
+          },
+        });
+
+        this.addCommand({
+          id: 'frontmatter-modal',
+          name: 'Add Frontmatter',
+          editorCallback: (editor: Editor) => {
+            const modal = new InitialModal(this.app);
+            modal.onChooseItem = (choice) => {
+                this.addCategoryToActiveNote(choice.title);
+            };
+            modal.open();
+            modal.setPlaceholder('Add Metadata to Active Note');
           },
         });
     }
