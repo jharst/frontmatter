@@ -78,11 +78,12 @@ export class PromptModal extends Modal {
 
         let newValue = '';
         new Setting(this.contentEl)
-          .setName(field)
-          .addText((text) =>
-            text.onChange((value) => {
-              newValue = value;
-            }));
+            .setName(field)
+            .addText((text) =>
+                text.onChange((value) => {
+                    newValue = value;
+                })
+            );
 
         new Setting(this.contentEl)
           .addButton((btn) =>
@@ -286,6 +287,36 @@ export default class EnhanceWebViewerPlugin extends Plugin {
           },
         });
 
+        this.addCommand({
+            id: 'add-tag',
+            name: 'Add Tag to Frontmatter',
+            editorCallback: (editor: Editor) => {
+                const modal = new MetadataModal(this.app, 'tags');
+                modal.onChooseItem = (item) => {
+                    if (item?.title) {
+                        this.addValueToActiveNote('tags', item.title);
+                    }
+                };
+                modal.open();
+                modal.setPlaceholder('Select a tag to add');
+            },
+        });
+
+        this.addCommand({
+            id: 'add-category',
+            name: 'Add Category to Frontmatter',
+            editorCallback: (editor: Editor) => {
+                const modal = new MetadataModal(this.app, 'category');
+                modal.onChooseItem = (item) => {
+                    if (item?.title) {
+                        this.addValueToActiveNote('category', item.title);
+                    }
+                };
+                modal.open();
+                modal.setPlaceholder('Select a category to add');
+            },
+        });
+        
         this.addCommand({
           id: 'frontmatter-modal',
           name: 'Add Frontmatter',
