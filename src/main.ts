@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, Menu, FuzzyMatch, FuzzySuggestModal, SuggestModal, Modal, Setting, renderResults } from 'obsidian';
+import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, FuzzySuggestModal, SuggestModal, Modal, Setting } from 'obsidian';
 interface Category {
     title: string;
     isNew?: boolean;
@@ -206,7 +206,42 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
         }
     }      
 }  
-   
+
+export class DeletionModal extends SuggestModal <Choice> {
+    async getSuggestions(query: string): Choice[] {
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!activeView || !activeView.file) {  
+            new Notice('No active markdown file found');  
+            return;  
+        }  
+        await this.app.fileManager.processFrontMatter(activeView.file, (frontmatter) => {
+            let frontmatterTypes: string[] = [];
+            if (frontmatter) {
+                frontmatterTypes = Object.keys(frontmatter);
+            }
+        return frontmatterTypes.map(field => ({ field }));
+        });
+    }
+
+    renderSuggestion(choice: Choice, el: HTMLElement) {
+        el.createEl('div', { text: choice.field });
+        el.createEl('small', { text: 'Remove values for ' + choice.field, cls: 'suggestion-subtitle' });
+    }
+
+    onChooseSuggestion(choice: InitialChoice, evt: MouseEvent | KeyboardEvent) {
+       // Call the onChooseItem callback if provided (so external handlers run)
+        const callback = (this as any).onChooseItem;
+        if (typeof callback === 'function') {
+            callback(choice);
+            return;
+        }
+
+        // Fallback behavior if no callback provided
+        new Notice(`Selected ${choice.field}`);
+        return choice;
+    }
+}   
+
 export default class FrontmatterPlugin extends Plugin {
 	async addValueToActiveNote(field: string, newValue: string) {  
         // Get the active markdown view  
@@ -334,8 +369,21 @@ export default class FrontmatterPlugin extends Plugin {
             modal.setPlaceholder('Add Metadata to Active Note');
           },
         });
-    }
 
+        this.addCommand({
+        id: 'remove-metadata',
+        name: 'Remove Metadata',
+        editorCallback: (editor: Editor) => {
+            const modal = new DeletionModal(this.app);
+            modal.onChooseItem = (choice) => {
+                new Notice(`Would remove values for field: ${choice.field}`);
+            };
+            modal.open();
+            modal.setPlaceholder('Remove Metadata from Active Note');
+            },
+        });
+    }
+    
 	async onunload() {
 	}
 }
