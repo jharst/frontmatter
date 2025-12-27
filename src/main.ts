@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, Menu, FuzzyMatch, FuzzySuggestModal, SuggestModal, renderResults } from 'obsidian';
+import { App, Editor, MarkdownView, parseFrontMatterEntry, Notice, Plugin, Menu, FuzzyMatch, FuzzySuggestModal, SuggestModal, Modal, Setting, renderResults } from 'obsidian';
 interface Category {
     title: string;
     isNew?: boolean;
@@ -9,7 +9,7 @@ interface InitialChoice {
     title: string;
     subtitle: string;
     type: 'FuzzySuggestModal'|'PromptModal';
-    field: 'category'|'tags'|'alias'|'author'|'year';
+    field: 'category'|'tags'|'aliases'|'author'|'year';
 }
 
 const ALL_CHOICES = [
@@ -29,7 +29,7 @@ const ALL_CHOICES = [
         title: 'Add Alias',
         subtitle: 'Specify an alias to add',
         type: 'PromptModal',
-        field: 'alias',
+        field: 'aliases',
     },
     {
         title: 'Add Year',
@@ -69,6 +69,31 @@ export class InitialModal extends SuggestModal<InitialChoice> {
         new Notice(`Selected ${choice.title}`);
         return choice;
     }
+}
+
+export class PromptModal extends Modal {
+    constructor(app: App, field: string, onSubmit: (result: string) => void) {
+        super(app);
+        this.setTitle('Input Value for ' + field);
+
+        let newValue = '';
+        new Setting(this.contentEl)
+          .setName(field)
+          .addText((text) =>
+            text.onChange((value) => {
+              newValue = value;
+            }));
+
+        new Setting(this.contentEl)
+          .addButton((btn) =>
+            btn
+              .setButtonText('Submit')
+              .setCta()
+              .onClick(() => {
+                this.close();
+                onSubmit(newValue);
+              }));
+      }
 }
 
 export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: boolean }> {
@@ -279,12 +304,12 @@ export default class EnhanceWebViewerPlugin extends Plugin {
                     metadataModal.setPlaceholder(`Select a ${field} to add`);
                 } else if (choice.type === 'PromptModal') {
                     const field = choice.field;
-                    // Simple prompt for now
-                    const userInput = prompt(`Enter ${field} to add:`);
-                    if (userInput) {
-                        // For alias and year, just insert at cursor for now
-                        editor.replaceRange(userInput, editor.getCursor());
-                    }
+                    const promptModal = new PromptModal(this.app, field, (value) => {
+                        if (value) {
+                            this.addValueToActiveNote(field, value);
+                        }
+                    });
+                    promptModal.open();
                 }
             };
             modal.open();
