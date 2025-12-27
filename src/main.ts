@@ -54,10 +54,10 @@ export class InitialModal extends SuggestModal<InitialChoice> {
 
     renderSuggestion(choice: InitialChoice, el: HTMLElement) {
         el.createEl('div', { text: choice.title });
-        el.createEl('small', {text: choice.subtitle});
+        el.createEl('small', { text: choice.subtitle, cls: 'suggestion-subtitle' });
     }
 
-    onChooseSuggestion(choice: InitialChoice, evt: MouseEvent | KeyboardEvIent) {
+    onChooseSuggestion(choice: InitialChoice, evt: MouseEvent | KeyboardEvent) {
        // Call the onChooseItem callback if provided (so external handlers run)
         const callback = (this as any).onChooseItem;
         if (typeof callback === 'function') {
@@ -100,7 +100,7 @@ export class PromptModal extends Modal {
 export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: boolean }> {
     private field: 'category'|'tags'|'author';
     private currentInput: string = '';
-    private allowCreat: boolean;
+    private allowCreate: boolean;
 
     constructor(app: App, field: 'category'|'tags'|'author', allowCreate = true) {
         super(app);
@@ -111,7 +111,7 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
     private getValues(): string [] {
         if (this.field === 'tags') {
             const tags = Object.keys(this.app.metadataCache.getTags()).map(tag => tag.replace(/^#/, ''));
-            return tags;
+            return tags.sort();
         } else {
             const files = this.app.vault.getMarkdownFiles();  
             const values = new Set<string>();  
@@ -244,35 +244,35 @@ export default class FrontmatterPlugin extends Plugin {
 
     async onload() {  
         // Register event for editor context menu  
-        this.registerEvent(
-          this.app.workspace.on('file-menu', (menu, file) => {
-            menu.addItem((item) => {
-              item
-                .setTitle('Print file path 👈')
-                .setIcon('document')
-                .onClick(async () => {
-                  new ExampleModal(this.app).open();
-                });
-            });
-          })
-        );
+        // this.registerEvent(
+        //   this.app.workspace.on('file-menu', (menu, file) => {
+        //     menu.addItem((item) => {
+        //       item
+        //         .setTitle('Print file path 👈')
+        //         .setIcon('document')
+        //         .onClick(async () => {
+        //           new ExampleModal(this.app).open();
+        //         });
+        //     });
+        //   })
+        // );
 
-        this.registerEvent(
-          this.app.workspace.on("editor-menu", (menu, editor, view) => {
-            menu.addItem((item) => {
-              item
-                .setTitle('Insert category')
-                .setIcon('document')
-                .onClick(async () => {
-                  const modal = new ExampleModal(this.app);
-                  modal.onChooseItem = (category) => {
-                    editor.replaceRange(category.title, editor.getCursor());
-                  };
-                  modal.open();
-                });
-            });
-          })
-        );
+        // this.registerEvent(
+        //   this.app.workspace.on("editor-menu", (menu, editor, view) => {
+        //     menu.addItem((item) => {
+        //       item
+        //         .setTitle('Insert category')
+        //         .setIcon('document')
+        //         .onClick(async () => {
+        //           const modal = new ExampleModal(this.app);
+        //           modal.onChooseItem = (category) => {
+        //             editor.replaceRange(category.title, editor.getCursor());
+        //           };
+        //           modal.open();
+        //         });
+        //     });
+        //   })
+        // );
 
         this.addCommand({
             id: 'add-tag',
