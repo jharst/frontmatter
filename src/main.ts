@@ -156,6 +156,7 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
     
     private getValues(): { title: string }[] {
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView); 
+        //Get values of active note
         const presentSet = new Set<string>();
         if (activeView && activeView.file) {      
             const cache = this.app.metadataCache.getFileCache(activeView.file);  
@@ -172,6 +173,7 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
             }
         }
 
+        //Get all possible values in vault (excluding present values)
         if (this.field === 'tags') {
             const allTags = Object.keys(this.app.metadataCache.getTags()).map(tag => tag.replace(/^#/, ''));
             return allTags
@@ -210,9 +212,11 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
         );
 
         //If no matches AND current input isn't equal to present values, add current input as a new value
-        const inActiveNote = Array.from(this.presentSet).some(v => v.toLowerCase() === inputLower);
-        this.allowCreate = !inActiveNote;
-        if (matches.length === 0 && this.allowCreate && this.currentInput.length > 0) {
+        const inActiveNoteExact = Array.from(this.presentSet).some(v => v.toLowerCase() === inputLower);
+        const inActiveNotePrefix = Array.from(this.presentSet).some(v => v.toLowerCase().startsWith(inputLower));
+        this.allowCreate = !(inActiveNoteExact);
+        if (this.currentInput.length > 3 && inActiveNotePrefix) { this.allowCreate = false; }
+        if (matches.length === 0 && this.allowCreate) {
            return [{ title: this.currentInput, isNew: true }];
         }
 
