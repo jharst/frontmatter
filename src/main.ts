@@ -257,7 +257,7 @@ export class DeletionModal extends SuggestModal <MetadataChoice> {
                 }
             }
         });
-        return metadataChoices;
+        return metadataChoices.filter((choice) => choice.title.toLowerCase().includes(query.toLowerCase()) || choice.field.toLowerCase().includes(query.toLowerCase()));
     }
 
     renderSuggestion(choice: MetadataChoice, el: HTMLElement) {
