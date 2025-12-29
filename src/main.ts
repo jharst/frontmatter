@@ -82,6 +82,10 @@ export class InitialModal extends SuggestModal<InitialChoice> {
                   
                     await this.app.fileManager.processFrontMatter(activeView.file, (frontmatter) => {
                         let existingValues: string[] = [];
+                        if (field === 'year') {
+                            value = parseInt(value);
+                        }
+
                         if (frontmatter[field]) {
                             if (Array.isArray(frontmatter[field])) {
                                 existingValues = frontmatter[field];
@@ -114,13 +118,36 @@ export class PromptModal extends Modal {
         this.setTitle('Input Value for ' + field);
 
         let newValue = '';
+        let submitBtnRef: any = null;
+
+        const validate = () => {
+            const isValid = field === 'year' ? /^\d+$/.test(newValue) : newValue.trim().length > 0;
+            if (submitBtnRef) submitBtnRef.setDisabled(!isValid);
+        }
+
         new Setting(this.contentEl)
             .setName(field)
-            .addText((text) =>
+            .addText((text) => {
                 text.onChange((value) => {
                     newValue = value;
-                })
-            );
+                    validate();
+                });
+                if (field === 'year') {
+                    const inputEl = (text as any).inputEl as HTMLInputElement;
+                    inputEl.inputMode = 'numeric';
+                    inputEl.pattern = '\\d*';
+                    // Strip non-digits as the user types and keep the component state in sync
+                    inputEl.addEventListener('input', () => {
+                        const cleaned = inputEl.value.replace(/\D/g, '');
+                        if (cleaned !== inputEl.value) {
+                            inputEl.value = cleaned;
+                            (text as any).setValue(cleaned);
+                        }
+                        newValue = cleaned;
+                        validate();
+                    });
+                }
+            });
 
         new Setting(this.contentEl)
           .addButton((btn) =>
