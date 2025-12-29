@@ -7,7 +7,7 @@ interface Category {
     id?: string;
 }
 
-interface MetadataChoice {
+interface Metadata {
     title: string;
     field: string;
 }
@@ -16,7 +16,7 @@ interface InitialChoice {
     title: string;
     subtitle: string;
     type: 'FuzzySuggestModal'|'PromptModal';
-    field: 'category'|'tags'|'aliases'|'author'|'year';
+    field: 'category'|'tags'|'aliases'|'author'|'year'|'all';
 }
 
 const ALL_CHOICES = [
@@ -239,24 +239,11 @@ export class MetadataModal extends FuzzySuggestModal<{ title: string; isNew?: bo
     }
 }  
 
-export class DeletionModal extends SuggestModal <MetadataChoice> {
-    async getSuggestions(query: string): MetadataChoice[] {
+export class DeletionModal extends SuggestModal <Metadata> {
+    async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
-        const metadataChoices: MetadataChoice[] = [];
-        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-            if (frontmatter) {
-                for (const [key, value] of Object.entries(frontmatter)) {
-                    if (Array.isArray(value)) {
-                        for (const item of value) {
-                            metadataChoices.push({ field: key, title: String(item) });
-                        }
-                    } else {
-                        metadataChoices.push({ field: key, title: String(value) });
-                    }
-                }
-            }
-        });
+        const metadataChoices = helpers.readFrontmatterValuesfromActiveFile(this.app, file, 'all');
         return metadataChoices.filter((choice) => choice.title.toLowerCase().includes(query.toLowerCase()) || choice.field.toLowerCase().includes(query.toLowerCase()));
     }
 
