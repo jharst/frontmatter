@@ -234,6 +234,21 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
 }  
 
 export class DeletionModal extends SuggestModal <Metadata> {
+    onOpen() {  
+        super.onOpen();  
+          
+        // Add footer after the suggestion container  
+        this.modalEl.addClass('suggest-modal-with-footer');  
+          
+        const footer = this.modalEl.createDiv('deletion-modal-footer');  
+        const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+        const modLabel = isMac ? 'Cmd' : 'Ctrl';
+        footer.createEl('small', {   
+          text: `Hold ${modLabel} (or ${isMac ? 'Ctrl' : 'Cmd'}) while selecting to modify instead of deleting.`,
+          cls: 'deletion-modal-footer-text'  
+        });  
+    }  
+
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
@@ -241,12 +256,12 @@ export class DeletionModal extends SuggestModal <Metadata> {
         return metadataChoices.filter((choice) => choice.title.toLowerCase().includes(query.toLowerCase()) || choice.field.toLowerCase().includes(query.toLowerCase()));
     }
 
-    renderSuggestion(choice: MetadataChoice, el: HTMLElement) {
+    renderSuggestion(choice: Metadata, el: HTMLElement) {
         el.createEl('div', { text: choice.title });
         el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle' });
     }
 
-    async onChooseSuggestion(choice: MetadataChoice, evt: MouseEvent | KeyboardEvent) {
+    async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
         
