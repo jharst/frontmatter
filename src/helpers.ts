@@ -74,7 +74,7 @@ export function readFrontmatterValuesfromActiveFile(app: App, file: TFile, field
   } else {
   	const fmValue = parseFrontMatterEntry(cache.frontmatter, field);
     const fmArr = Array.isArray(fmValue) ? fmValue : (fmValue ? [fmValue] : []);
-    fmArr.forEach(v => presentMetadata.add({ title: v, field: field, isNew: false}));
+    fmArr.forEach(v => presentMetadata.push({ title: v, field: field, isNew: false}));
   }
   return presentMetadata;
 }
