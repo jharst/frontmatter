@@ -240,9 +240,6 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
     }
 }  
 
-//Code for handling modifier keys courtesy of https://rwblickhan.org/technical/obsidian-plugin/
-//https://github.com/rwblickhan/obsidian-tag-search/blob/master/main.ts
-
 export class DeletionModal extends FuzzySuggestModal <Metadata> {
     constructor(app: App) {  
         super(app);  
@@ -279,13 +276,17 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
 
     getItemText(item: Metadata): string {return item.title; }
 
-    //This handles modifier keys for both mouse and keyboard events
-    onChooseItem(item: Metadata, evt: MouseEvent | KeyboardEvent): void {
-        console.log("onChooseItem: ", evt);
-        const toggle = evt.metaKey || evt.ctrlKey;
-        if (toggle) {
-            const field = item.field;
-            const oldTitle = item.title;
+    renderSuggestion(choice: Metadata, el: HTMLElement) {
+        el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
+        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle'});
+    }
+
+    async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
+        console.log("onChooseSuggestion: ", evt);
+        //If meta key held, open prompt to modify
+        if (evt instanceof KeyboardEvent && (evt.ctrlKey || evt.metaKey)) {
+            const field = choice.field;
+            const oldTitle = choice.title;
             this.close();
             const promptModal = new PromptModal(this.app, field, async (value) => {
                 if (!value) {
@@ -316,36 +317,21 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
             }, oldTitle);
             promptModal.open();
         } else {
-            this.onChooseSuggestion(item, evt);
+            // Proceed with deletion
+            const file = helpers.getActiveMDFile(this.app);
+            if (!file) {new Notice('No active markdown file found'); return; }
+            
+            const changed = helpers.updateFrontmatterValues(this.app, file, choice.field, choice.title);
+            if (changed) { new Notice(`Removed "${choice.title}" from ${choice.field}`); }
+            await new Promise(res => setTimeout(res, 100)); // 50-200ms usually enough
+            const remainingChoices = await this.getSuggestions('');
+            if (remainingChoices.length > 0) {
+                 const newModal = new DeletionModal(this.app);
+                 newModal.open();
+            } else {
+                 new Notice('All metadata removed.');
+            }
         }
-    }
-
-
-    renderSuggestion(choice: Metadata, el: HTMLElement) {
-        el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
-        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle'});
-    }
-
-    //This handles normal deletion
-    async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
-        console.log("onChooseSuggestion: ", evt);
-        if (evt instanceof KeyboardEvent && (evt.ctrlKey || evt.metaKey)) {
-            this.onChooseItem(choice, evt);
-        } else {
-        const file = helpers.getActiveMDFile(this.app);
-        if (!file) {new Notice('No active markdown file found'); return; }
-        
-        const changed = helpers.updateFrontmatterValues(this.app, file, choice.field, choice.title);
-        if (changed) { new Notice(`Removed "${choice.title}" from ${choice.field}`); }
-        await new Promise(res => setTimeout(res, 100)); // 50-200ms usually enough
-        const remainingChoices = await this.getSuggestions('');
-        if (remainingChoices.length > 0) {
-             const newModal = new DeletionModal(this.app);
-             newModal.open();
-        } else {
-             new Notice('All metadata removed.');
-        }
-    }
     }
 }   
 
