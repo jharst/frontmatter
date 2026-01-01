@@ -233,9 +233,12 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
     }
 }  
 
-export class DeletionModal extends SuggestModal <Metadata> {
-    constructor(app: App, plugin: FrontmatterPlugin) {  
-        super(app, plugin);  
+//Code for handling modifier keys courtesy of https://rwblickhan.org/technical/obsidian-plugin/
+//https://github.com/rwblickhan/obsidian-tag-search/blob/master/main.ts
+
+export class DeletionModal extends FuzzySuggestModal <Metadata> {
+    constructor(app: App) {  
+        super(app);  
           
         // Set instructions to show keyboard shortcuts  
         this.setInstructions([{  
@@ -251,16 +254,19 @@ export class DeletionModal extends SuggestModal <Metadata> {
           command: "esc",  
           purpose: "Cancel"  
         }]);    
-
-        this.scope.register(["Mod"], "Enter", (evt) => {  
-            if (this.suggestions && this.selectedItem !== undefined) {  
-                new Notice(`Mod + Enter on "${this.suggestions[this.selectedItem]?.title}" - No action assigned`);  
-                return false; // Prevent default handling  
-            } else {
-                new Notice('No suggestion available');
-            }
+}  
+    
+    onOpen(): void {
+        super.onOpen();
+        this.inputEl.addEventListener("keydown", (ev: KeyboardEvent) => {
+            this.maybeChooseFirstSuggestion(ev);
         });
-  }  
+    }
+
+    onClose(): void {
+        super.onClose();
+        this.inputEl.removeEventListener("keydown", (ev: KeyboardEvent) => {});
+    }
 
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
@@ -269,9 +275,25 @@ export class DeletionModal extends SuggestModal <Metadata> {
         return metadataChoices.filter((choice) => choice.title.toLowerCase().includes(query.toLowerCase()) || choice.field.toLowerCase().includes(query.toLowerCase()));
     }
 
+    getItemText(item: Metadata): string {return item.title; }
+
+    onChooseItem(item: Metadata, evt: MouseEvent | KeyboardEvent): void {
+        const toggle = evt.metaKey || evt.ctrlKey;
+        if (toggle) {
+            // Modify item logic here (not implemented in this example)
+            new Notice(`Modify functionality not implemented for "${item.title}, field: ${item.field}"`);
+            console.log(item);
+        } else {
+            this.onChooseSuggestion(item, evt);
+        }
+    }
+
     renderSuggestion(choice: Metadata, el: HTMLElement) {
-        el.createEl('div', { text: choice.title });
-        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle' });
+        el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
+        const smallEl = el.createEl('small', { cls: 'suggestion-subtitle'});
+        smallEl.appendText('Remove values for ');
+        const spanEl = smallEl.createEl('span', { text: choice.field, cls: 'field-span' });
+        smallEl.appendText(': ' + choice.title);
     }
 
     async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
@@ -287,6 +309,33 @@ export class DeletionModal extends SuggestModal <Metadata> {
             newModal.open();
         } else {
             new Notice('All metadata removed.');
+        }
+    }
+
+    private maybeChooseFirstSuggestion(evt: KeyboardEvent) {
+        const toggle = evt.ctrlKey || evt.metaKey;
+        const negate = evt.shiftKey;
+        const choice: Metadata = { title: '', field: '', isNew: false };
+        /* "Enter"-only case is handled by FuzzySuggestModal already
+        It seems that the selected item has to be chosen manually here
+        which means that the metadata structure is lost */
+        if (evt.key === "Enter" && (toggle || negate)) {
+            choice.title =
+                this.resultContainerEl
+                    .getElementsByClassName("is-selected")
+                    .item(0)
+                    ?.getElementsByClassName("suggestion-title")
+                    .item(0)?.textContent ?? null;
+            choice.field = 
+                this.resultContainerEl 
+                    .getElementsByClassName("is-selected")
+                    .item(0)
+                    ?.getElementsByClassName("field-span")
+                    .item(0)?.textContent ?? '';
+            if (choice != null) {
+                this.close();
+                this.onChooseItem(choice, evt);
+            }
         }
     }
 }   
