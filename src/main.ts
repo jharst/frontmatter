@@ -97,7 +97,7 @@ export class InitialModal extends SuggestModal<InitialChoice> {
 }
 
 export class PromptModal extends Modal {
-    constructor(app: App, field: string, onSubmit: (result: string) => void) {
+    constructor(app: App, field: string, onSubmit: (result: string) => void, initialValue?: string) {
         super(app);
         this.setTitle('Input Value for ' + field);
 
@@ -112,6 +112,11 @@ export class PromptModal extends Modal {
         new Setting(this.contentEl)
             .setName(field)
             .addText((text) => {
+                // Set initial value if provided
+                if (typeof initialValue !== 'undefined' && initialValue !== null) {
+                    (text as any).setValue(String(initialValue));
+                    newValue = String(initialValue);
+                }
                 text.onChange((value) => {
                     newValue = value;
                     validate();
@@ -131,6 +136,8 @@ export class PromptModal extends Modal {
                         validate();
                     });
                 }
+                // Run initial validation after possible initialValue set
+                setTimeout(validate, 0);
             });
 
         new Setting(this.contentEl)
@@ -233,7 +240,41 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
     }
 }  
 
-export class DeletionModal extends SuggestModal <Metadata> {
+//Code for handling modifier keys courtesy of https://rwblickhan.org/technical/obsidian-plugin/
+//https://github.com/rwblickhan/obsidian-tag-search/blob/master/main.ts
+
+export class DeletionModal extends FuzzySuggestModal <Metadata> {
+    constructor(app: App) {  
+        super(app);  
+          
+        // Set instructions to show keyboard shortcuts  
+        this.setInstructions([{  
+          command: "↑↓",  
+          purpose: "Navigate suggestions"  
+        }, {  
+          command: "↵",  
+          purpose: "Delete selected item"  
+        }, {  
+          command: "⌘ ↵",  
+          purpose: "Modify selected item"  
+        }, {  
+          command: "esc",  
+          purpose: "Cancel"  
+        }]);    
+}  
+    
+    onOpen(): void {
+        super.onOpen();
+        this.inputEl.addEventListener("keydown", (ev: KeyboardEvent) => {
+            this.maybeChooseFirstSuggestion(ev);
+        });
+    }
+
+    onClose(): void {
+        super.onClose();
+        this.inputEl.removeEventListener("keydown", (ev: KeyboardEvent) => {});
+    }
+
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
@@ -241,12 +282,56 @@ export class DeletionModal extends SuggestModal <Metadata> {
         return metadataChoices.filter((choice) => choice.title.toString().toLowerCase().includes(query.toLowerCase()) || choice.field.toLowerCase().includes(query.toLowerCase()));
     }
 
-    renderSuggestion(choice: MetadataChoice, el: HTMLElement) {
-        el.createEl('div', { text: choice.title });
-        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle' });
+    getItemText(item: Metadata): string {return item.title; }
+
+    onChooseItem(item: Metadata, evt: MouseEvent | KeyboardEvent): void {
+        const toggle = evt.metaKey || evt.ctrlKey;
+        if (toggle) {
+            const field = item.field;
+            const oldTitle = item.title;
+            this.close();
+            const promptModal = new PromptModal(this.app, field, async (value) => {
+                if (!value) {
+                    new Notice('No value provided, modification cancelled.');
+                    const reopen = new DeletionModal(this.app);
+                    reopen.open();
+                    return;
+                }
+                // If value unchanged, just reopen
+                if (String(value) === String(oldTitle)) {
+                    new Notice('No change made.');
+                    const reopenSame = new DeletionModal(this.app);
+                    reopenSame.open();
+                    return;
+                }
+
+                const file = helpers.getActiveMDFile(this.app);
+                if (!file) {new Notice('No active markdown file found'); return; }
+
+                // Remove old and add new (helpers.updateFrontmatterValues toggles presence)
+                await helpers.updateFrontmatterValues(this.app, file, field, oldTitle);
+                await helpers.updateFrontmatterValues(this.app, file, field, value);
+
+                new Notice(`Modified "${oldTitle}" to "${value}" in ${field}`);
+                // Reopen deletion modal after timeout
+                const newModal = new DeletionModal(this.app);
+                setTimeout(() => newModal.open(), 100);
+            }, oldTitle);
+            promptModal.open();
+        } else {
+            this.onChooseSuggestion(item, evt);
+        }
     }
 
-    async onChooseSuggestion(choice: MetadataChoice, evt: MouseEvent | KeyboardEvent) {
+    renderSuggestion(choice: Metadata, el: HTMLElement) {
+        el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
+        const smallEl = el.createEl('small', { cls: 'suggestion-subtitle'});
+        smallEl.appendText('Remove values for ');
+        const spanEl = smallEl.createEl('span', { text: choice.field, cls: 'field-span' });
+        smallEl.appendText(': ' + choice.title);
+    }
+
+    async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
         
@@ -259,6 +344,33 @@ export class DeletionModal extends SuggestModal <Metadata> {
              newModal.open();
         } else {
              new Notice('All metadata removed.');
+        }
+    }
+
+    private maybeChooseFirstSuggestion(evt: KeyboardEvent) {
+        const toggle = evt.ctrlKey || evt.metaKey;
+        const negate = evt.shiftKey;
+        const choice: Metadata = { title: '', field: '', isNew: false };
+        /* "Enter"-only case is handled by FuzzySuggestModal already
+        It seems that the selected item has to be chosen manually here
+        which means that the metadata structure is lost */
+        if (evt.key === "Enter" && (toggle || negate)) {
+            choice.title =
+                this.resultContainerEl
+                    .getElementsByClassName("is-selected")
+                    .item(0)
+                    ?.getElementsByClassName("suggestion-title")
+                    .item(0)?.textContent ?? null;
+            choice.field = 
+                this.resultContainerEl 
+                    .getElementsByClassName("is-selected")
+                    .item(0)
+                    ?.getElementsByClassName("field-span")
+                    .item(0)?.textContent ?? '';
+            if (choice != null) {
+                this.close();
+                this.onChooseItem(choice, evt);
+            }
         }
     }
 }   
