@@ -234,20 +234,33 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
 }  
 
 export class DeletionModal extends SuggestModal <Metadata> {
-    onOpen() {  
-        super.onOpen();  
+    constructor(app: App, plugin: FrontmatterPlugin) {  
+        super(app, plugin);  
           
-        // Add footer after the suggestion container  
-        this.modalEl.addClass('suggest-modal-with-footer');  
-          
-        const footer = this.modalEl.createDiv('deletion-modal-footer');  
-        const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-        const modLabel = isMac ? 'Cmd' : 'Ctrl';
-        footer.createEl('small', {   
-          text: `Hold ${modLabel} (or ${isMac ? 'Ctrl' : 'Cmd'}) while selecting to modify instead of deleting.`,
-          cls: 'deletion-modal-footer-text'  
+        // Set instructions to show keyboard shortcuts  
+        this.setInstructions([{  
+          command: "↑↓",  
+          purpose: "Navigate suggestions"  
+        }, {  
+          command: "↵",  
+          purpose: "Delete selected item"  
+        }, {  
+          command: "⌘ ↵",  
+          purpose: "Modify selected item"  
+        }, {  
+          command: "esc",  
+          purpose: "Cancel"  
+        }]);    
+
+        this.scope.register(["Mod"], "Enter", (evt) => {  
+            if (this.suggestions && this.selectedItem !== undefined) {  
+                new Notice(`Mod + Enter on "${this.suggestions[this.selectedItem]?.title}" - No action assigned`);  
+                return false; // Prevent default handling  
+            } else {
+                new Notice('No suggestion available');
+            }
         });  
-    }  
+  }  
 
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
