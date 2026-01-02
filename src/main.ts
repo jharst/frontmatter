@@ -241,9 +241,13 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
 }  
 
 export class DeletionModal extends FuzzySuggestModal <Metadata> {
+    private modifyMode = false;
+    public setModifyMode(v: boolean) { this.modifyMode = v; }
+    private onGlobalKeyDownBound: (e: KeyboardEvent) => void;
+    private onGlobalKeyUpBound: (e: KeyboardEvent) => void;
+    
     constructor(app: App) {  
-        super(app);  
-          
+        super(app);    
         // Set instructions to show keyboard shortcuts  
         this.setInstructions([{  
           command: "↑↓",  
@@ -259,13 +263,85 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
           purpose: "Cancel"  
         }]);    
 
+        this.setPlaceholder('Remove Metadata from Active Note');
+        
         this.scope.register(["Mod"], "Enter", (evt) => {  
             new Notice("Modify action triggered");  
             console.log("Scope: ", evt)
             this.selectActiveSuggestion(evt);
             return false;
         });
-}  
+        
+        // document.addEventListener("keydown", (evt) => {  
+        //     if (evt.key === "Shift") {  
+        //         this.toggle = true;
+        //         new Notice("Shift key");  
+        //     }  
+        // });
+
+        this.onGlobalKeyDownBound = this.onGlobalKeyDown.bind(this);
+        this.onGlobalKeyUpBound = this.onGlobalKeyUp.bind(this);
+    }  
+
+    onOpen() {
+        super.onOpen?.();
+        window.addEventListener("keydown", this.onGlobalKeyDownBound);
+        window.addEventListener("keyup", this.onGlobalKeyUpBound);
+        console.log("DeletionModal opened, event listeners added");
+    }
+
+    onClose() {
+        window.removeEventListener("keydown", this.onGlobalKeyDownBound);
+        window.removeEventListener("keyup", this.onGlobalKeyUpBound);
+        super.onClose?.();
+    }
+
+    private onGlobalKeyDown(e: KeyboardEvent) {
+        console.log("onGlobalKeyDown triggered");
+        if (e.ctrlKey || e.metaKey) {
+          if (!this.modifyMode) {
+            this.modifyMode = true;
+            console.log("onGlobalKeyDown triggered");
+            console.log("modify mode: ", this.modifyMode);
+            this.refreshSuggestions();
+          }
+        }
+    }
+
+    private onGlobalKeyUp(e: KeyboardEvent) {
+        // when neither modifier is pressed, turn modifyMode off
+        console.log("onGlobalKeyUp triggered");
+        if (!e.ctrlKey && !e.metaKey) {
+          if (this.modifyMode) {
+            this.modifyMode = false;
+            this.refreshSuggestions();
+          }
+        }
+    }
+
+    // Try internal method if present; otherwise fallback to close/reopen preserving input
+    private async refreshSuggestions() {
+        const inputValue = (this as any).inputEl?.value ?? "";
+
+        // close and reopen modal (preserve input value)
+        const preservedValue = inputValue;
+        this.close();
+        const reopened = new DeletionModal(this.app);
+        console.log("Reopening DeletionModal to refresh suggestions");
+        reopened.setModifyMode(this.modifyMode);
+        reopened.open();
+        
+        // restore input after modal open
+        setTimeout(() => {
+          try {
+            (reopened as any).inputEl.value = preservedValue;
+            // trigger input event so the modal's internals pick up the value
+            (reopened as any).inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+          } catch (err) {
+            /* ignore */
+          }
+        }, 0);
+    }
 
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
@@ -278,7 +354,9 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
 
     renderSuggestion(choice: Metadata, el: HTMLElement) {
         el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
-        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle'});
+        // Use the modifyMode flag to change the subtitle text dynamically
+        const subtitle = (this.modifyMode ? 'Modify values for ' : 'Remove values for ') + choice.field + ': ' + choice.title;
+        el.createEl('small', { text: subtitle, cls: 'suggestion-subtitle'});
     }
 
     async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
