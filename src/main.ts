@@ -192,11 +192,11 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
         const matches = allValues
             .filter(v => typeof v.title === 'string' && v.title.toLowerCase().includes(inputLower))
 
-        //If no matches AND current input isn't equal to present values, add current input as a new value
+        //If current input isn't equal to present values, add current input as a new value
         const inActiveNoteExact = Array.from(this.presentMetadata).some(v => v.title.toLowerCase() === inputLower);
         const inActiveNotePrefix = Array.from(this.presentMetadata).some(v => v.title.toLowerCase().startsWith(inputLower));
         this.allowCreate = !(inActiveNoteExact);
-        if (this.currentInput.length > 3 && inActiveNotePrefix) { this.allowCreate = false; }
+
         if (matches.length === 0 && this.allowCreate) {
            return [{ title: this.currentInput, field: this.field, isNew: true }];
         }
@@ -207,7 +207,7 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
         );
 
         if (!hasExactMatch && this.allowCreate) {
-            return [{ title: this.currentInput, field: this.field, isNew: true }, ...matches];
+            matches.push({ title: this.currentInput, field: this.field, isNew: true });
         }
 
         return matches;
