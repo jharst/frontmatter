@@ -64,7 +64,7 @@ export class InitialModal extends SuggestModal<InitialChoice> {
             purpose: "Cancel"  
         }]);    
     }
-    
+
     getSuggestions(query: string): InitialChoice[] {
         return ALL_CHOICES.filter((choice) =>
           choice.title.toLowerCase().includes(query.toLowerCase())
@@ -289,17 +289,37 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
         // Set instructions to show keyboard shortcuts  
         this.setInstructions([{  
           command: "↑↓",  
-          purpose: "Navigate suggestions"  
+          purpose: "Navigate"  
         }, {  
           command: "↵",  
-          purpose: "Delete selected item"  
+          purpose: "Modify item"  
         }, {  
           command: "⌘ ↵",  
-          purpose: "Modify selected item"  
-        }, {  
+          purpose: "Delete item"  
+        }, {
+          command: "⇧↵",
+          purpose: "Modify another"
+        }, {
+            command: "⇧⌘ ↵",
+            purpose: "Delete another"
+        }, {
           command: "esc",  
           purpose: "Cancel"  
         }]);    
+
+        this.scope.register(["Shift", "Mod"], "Enter", (evt) => {  
+            new Notice("Shift + Mod action triggered");  
+            console.log("Scope: ", evt)
+            this.selectActiveSuggestion(evt);
+            return false;
+        });
+
+        this.scope.register(["Shift"], "Enter", (evt) => {  
+            new Notice("Shift action triggered");  
+            console.log("Scope: ", evt)
+            this.selectActiveSuggestion(evt);
+            return false;
+        });
 
         this.scope.register(["Mod"], "Enter", (evt) => {  
             new Notice("Modify action triggered");  
@@ -320,13 +340,43 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
 
     renderSuggestion(choice: Metadata, el: HTMLElement) {
         el.createEl('div', { text: choice.title, cls: 'suggestion-title' });
-        el.createEl('small', { text: 'Remove values for ' + choice.field + ': ' + choice.title, cls: 'suggestion-subtitle'});
+        el.createEl('small', { 
+            text: choice.field === 'tags'
+                ? 'Modify values for tag: ' + choice.title 
+                : 'Modify values for ' + choice.field + ': ' + choice.title, 
+            cls: 'suggestion-subtitle'
+        });
     }
 
     async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
         console.log("onChooseSuggestion: ", evt);
-        //If meta key held, open prompt to modify
+        //If meta key held, delete item
+        //If meta + shift held, delete and reopen
+        //If shift held, modify item and reopen
         if (evt instanceof KeyboardEvent && (evt.ctrlKey || evt.metaKey)) {
+            // Delete field if command held
+            const file = helpers.getActiveMDFile(this.app);
+            if (!file) {new Notice('No active markdown file found'); return; }
+            
+            const changed = helpers.updateFrontmatterValues(this.app, file, choice.field, choice.title);
+            if (changed) { new Notice(`Removed "${choice.title}" from ${choice.field}`); }
+            await new Promise(res => setTimeout(res, 100)); // 50-200ms usually enough
+            
+            // Reopen deletion modal if command + shift held
+            if (evt.metaKey && evt.shiftKey) {
+                const remainingChoices = await this.getSuggestions('');
+                if (remainingChoices.length > 0) {
+                    const newModal = new DeletionModal(this.app);
+                    setTimeout(() => newModal.open(), 100);
+                } else {
+                    new Notice('All metadata removed.');
+                    this.close();
+                }
+            } else {
+                this.close();
+            }
+        } else {
+            //Modify field if no command held
             const field = choice.field;
             const oldTitle = choice.title;
             this.close();
@@ -353,26 +403,13 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
                 await helpers.updateFrontmatterValues(this.app, file, field, value);
 
                 new Notice(`Modified "${oldTitle}" to "${value}" in ${field}`);
-                // Reopen deletion modal after timeout
-                const newModal = new DeletionModal(this.app);
-                setTimeout(() => newModal.open(), 100);
+                // Reopen deletion modal if shift held
+                if (evt.shiftKey) {
+                    const newModal = new DeletionModal(this.app);
+                    setTimeout(() => newModal.open(), 100);
+                }
             }, oldTitle);
             promptModal.open();
-        } else {
-            // Proceed with deletion
-            const file = helpers.getActiveMDFile(this.app);
-            if (!file) {new Notice('No active markdown file found'); return; }
-            
-            const changed = helpers.updateFrontmatterValues(this.app, file, choice.field, choice.title);
-            if (changed) { new Notice(`Removed "${choice.title}" from ${choice.field}`); }
-            await new Promise(res => setTimeout(res, 100)); // 50-200ms usually enough
-            const remainingChoices = await this.getSuggestions('');
-            if (remainingChoices.length > 0) {
-                 const newModal = new DeletionModal(this.app);
-                 newModal.open();
-            } else {
-                 new Notice('All metadata removed.');
-            }
         }
     }
 }   
