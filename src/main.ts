@@ -68,7 +68,6 @@ export class InitialModal extends SuggestModal<InitialChoice> {
         }]);
 
         this.scope.register(["Mod"], "d", (evt) => {  
-            console.log("Scope: ", evt)
             evt.preventDefault();
             this.close();
             const deletionModal = new DeletionModal(this.app);
@@ -210,8 +209,6 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
         }]);    
 
         this.scope.register(["Mod"], "Enter", (evt) => {  
-            new Notice("Modify action triggered");  
-            console.log("Scope: ", evt)
             this.selectActiveSuggestion(evt);
             return false;
         });
@@ -320,7 +317,6 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
         }]);    
 
         this.scope.register(["Mod"], "a", (evt) => {  
-            console.log("Scope: ", evt)
             evt.preventDefault();
             this.close();
             const initialModal = new InitialModal(this.app);
@@ -329,22 +325,16 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
         });
 
         this.scope.register(["Shift", "Mod"], "Enter", (evt) => {  
-            new Notice("Shift + Mod action triggered");  
-            console.log("Scope: ", evt)
             this.selectActiveSuggestion(evt);
             return false;
         });
 
         this.scope.register(["Shift"], "Enter", (evt) => {  
-            new Notice("Shift action triggered");  
-            console.log("Scope: ", evt)
             this.selectActiveSuggestion(evt);
             return false;
         });
 
         this.scope.register(["Mod"], "Enter", (evt) => {  
-            new Notice("Modify action triggered");  
-            console.log("Scope: ", evt)
             this.selectActiveSuggestion(evt);
             return false;
         });
@@ -370,14 +360,10 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
     }
 
     async onChooseSuggestion(choice: Metadata, evt: MouseEvent | KeyboardEvent) {
-        console.log("onChooseSuggestion: ", evt);
         //If meta key held, delete item
         //If meta + shift held, delete and reopen
         //If shift held, modify item and reopen
-        if (evt instanceof KeyboardEvent && (evt.ctrlKey || evt.metaKey)) {
-            // Change to Add Fields if Option + Mod + A held
-            
-            // Delete field if command held
+        if (evt instanceof KeyboardEvent && (evt.ctrlKey || evt.metaKey)) {            
             const file = helpers.getActiveMDFile(this.app);
             if (!file) {new Notice('No active markdown file found'); return; }
             
