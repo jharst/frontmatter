@@ -12,8 +12,9 @@ node_modules
 # They should be uploaded to GitHub releases instead.
 main.js
 
-# Exclude sourcemaps
+# Exclude sourcemaps and sublime files
 *.map
+*.sublime*
 
 # obsidian
 data.json
