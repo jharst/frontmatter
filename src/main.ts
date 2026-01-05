@@ -424,8 +424,20 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
 }   
 
 export default class FrontmatterPlugin extends Plugin {
+    public api: any;
 
     async onload() {  
+        // Define the API
+        this.api = {
+            openInitialModal: () => {
+                const modal = new InitialModal(this.app);
+                modal.open();
+            },
+        };
+        
+        //Register the API
+        this.app.plugins.plugins['frontmatter-plugin'] = this.api;
+        
         // Register event for editor context menu  
         // this.registerEvent(
         //   this.app.workspace.on('file-menu', (menu, file) => {
@@ -509,13 +521,18 @@ export default class FrontmatterPlugin extends Plugin {
 
         this.registerEvent(
           this.app.vault.on('create', async (file) => {
-            if (!(file instanceof TFile) || file.extension !== 'md') return;
+            if (!(file instanceof TFile) || file.extension !== 'md' || file.parent === null) {
+              return;
+            }
             // Small delay to ensure the active view is set before opening modal
             setTimeout(() => new InitialModal(this.app).open(), 50);
-            })
+          })
         );
+
     }
 
 	async onunload() {
+        //Unregister the API
+        delete this.app.plugins.plugins['frontmatter-plugin'];
 	}
 }
