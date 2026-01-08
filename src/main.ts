@@ -184,6 +184,14 @@ export class PromptModal extends Modal {
               })
               );
       }
+
+      onClose() {
+        super.onClose();
+        const inputEl = (this.contentEl.querySelector('input') as HTMLInputElement);
+        if (inputEl && this.inputListener) {
+            inputEl.remmoveEventListener('input', this.inputListener);
+        }
+      }
 }
 
 export class MetadataModal extends FuzzySuggestModal<Metadata> {
@@ -217,6 +225,11 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
         this.allowCreate = allowCreate;
     }
     
+    onClose() {
+        super.onClose();
+        this.scope.unregisterAll();
+    }
+
     private getValues(): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
         if (!file) {new Notice('No active markdown file found'); return; }
@@ -338,7 +351,12 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
             this.selectActiveSuggestion(evt);
             return false;
         });
-}  
+    }
+
+    onClose() {
+        super.onClose();
+        this.scope.unregisterAll();
+    }  
 
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
@@ -507,15 +525,15 @@ export default class FrontmatterPlugin extends Plugin {
             },
         });
 
-        this.registerEvent(
-          this.app.vault.on('create', async (file) => {
-            if (!(file instanceof TFile) || file.extension !== 'md') return;
-            // Small delay to ensure the active view is set before opening modal
-            setTimeout(() => new InitialModal(this.app).open(), 50);
-            })
-        );
+        this.app.workspace.onLayoutReady(() => {
+            this.registerEvent(this.app.vault.on('create', async (file) => {
+                if (!(file instanceof TFile) || file.extension !== 'md') return;
+                // Small delay to ensure the active view is set before opening modal
+                setTimeout(() => new InitialModal(this.app).open(), 50);
+            })); 
+        });
     }
-
+    
 	async onunload() {
 	}
 }

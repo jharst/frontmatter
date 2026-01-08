@@ -15,14 +15,11 @@ If your plugin does not need CSS, delete this file.
 	color: var(--bold-color)
 }
 
-.deletion-modal-footer {
-  padding: 8px 12px;
-  border-top: 1px solid var(--interactive-border);
-  background: var(--background-primary);
-  font-size: smaller;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  display: flex;  
-  justify-content: center;  
-  align-items: center;  
+.modal {
+  width: 350px;
+}
+
+.templater-prompt-input {
+  height: 35px;
+  width: 150px;
 }
