@@ -224,11 +224,6 @@ export class MetadataModal extends FuzzySuggestModal<Metadata> {
         this.field = field;
         this.allowCreate = allowCreate;
     }
-    
-    onClose() {
-        super.onClose();
-        this.scope.unregisterAll();
-    }
 
     private getValues(): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
@@ -352,11 +347,6 @@ export class DeletionModal extends FuzzySuggestModal <Metadata> {
             return false;
         });
     }
-
-    onClose() {
-        super.onClose();
-        this.scope.unregisterAll();
-    }  
 
     async getSuggestions(query: string): Metadata[] {
         const file = helpers.getActiveMDFile(this.app);
@@ -525,13 +515,14 @@ export default class FrontmatterPlugin extends Plugin {
             },
         });
 
-        this.app.workspace.onLayoutReady(() => {
-            this.registerEvent(this.app.vault.on('create', async (file) => {
-                if (!(file instanceof TFile) || file.extension !== 'md') return;
-                // Small delay to ensure the active view is set before opening modal
-                setTimeout(() => new InitialModal(this.app).open(), 50);
-            })); 
-        });
+        // this.app.workspace.onLayoutReady(() => {
+        //     this.registerEvent(this.app.vault.on('create', async (file) => {
+        //         if (!(file instanceof TFile) || file.extension !== 'md') return;
+        //         if (file.path.startsWith('/')) return; // Ignore files that are not in the vault root
+        //         // Small delay to ensure the active view is set before opening modal
+        //         setTimeout(() => new InitialModal(this.app).open(), 50);
+        //     })); 
+        // });
     }
     
 	async onunload() {
